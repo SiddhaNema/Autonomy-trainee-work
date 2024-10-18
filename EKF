@@ -1,1 +1,37 @@
+'''Question Code https://github.com/IVDC-Club-IIT-Indore/IVDC_Automathon-24/tree/main/ekf_ps'''
+'''Solutions'''
+# Wraps angle to (-pi, pi] range
+def wraptopi(x):
+    return (x + np.pi) % (2 * np.pi) - np.pi
+    
+def main_filter_loop():    
+# 1. Update state with odometry readings
+    x_check[0] += v[k - 1] * np.cos(theta) * delta_t  # Update x position
+    x_check[1] += v[k - 1] * np.sin(theta) * delta_t  # Update y position
+    x_check[2] = wraptopi(x_check[2] + om[k - 1] * delta_t)  # Update theta
 
+# 2. Motion model Jacobian with respect to last state
+#G is gradient of dynamics function wrt state vector  
+    G_k = np.zeros((3, 3))
+    G_k[0, 0] = 1
+    G_k[0, 2] = -v[k - 1] * np.sin(theta) * delta_t  
+    G_k[1, 1] = 1
+    G_k[1, 2] = v[k - 1] * np.cos(theta) * delta_t  
+    G_k[2, 2] = 1  
+
+# 3. Motion model Jacobian with respect to noise
+#B is gradient of dynamics function wrt controler vector
+    B_k = np.zeros((3, 2))
+    B_k[0, 0] = np.cos(theta) * delta_t
+    B_k[1, 0] = np.sin(theta) * delta_t
+    B_k[2, 1] = delta_t
+
+    # 4. Propagate uncertainty
+    P_check = G_k @ P_est[k - 1] @ G_k.T + B_k @ Q_km @ B_k.T
+
+    # 5. Update state estimate using available landmark measurements
+    x_check, P_check = measurement_update(l[k], r[k], b[k], P_check, x_check)
+
+    # Set final state predictions for timestep
+    x_est[k] = x_check.flatten()  # Store the state estimate
+    P_est[k] = P_check  # Store the covariance estimate
